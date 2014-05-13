@@ -78,7 +78,9 @@ public final class MercatorProjection {
 		if (zoomLevel < 0) {
 			throw new IllegalArgumentException("zoom level must not be negative: " + zoomLevel);
 		}
-		return (long) Tile.TILE_SIZE << zoomLevel;
+		long mapSize = ((long) Tile.TILE_SIZE) << zoomLevel;
+
+		return mapSize;
 	}
 
 	/**
