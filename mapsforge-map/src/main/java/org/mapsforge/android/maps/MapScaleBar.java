@@ -56,7 +56,7 @@ public class MapScaleBar {
 	}
 
 	private static final int BITMAP_HEIGHT = 50;
-	private static final int BITMAP_WIDTH = 150;
+	private static final int BITMAP_WIDTH = 200;
 	private static final double LATITUDE_REDRAW_THRESHOLD = 0.2;
 	private static final int MARGIN_BOTTOM = 5;
 	private static final int MARGIN_LEFT = 5;
