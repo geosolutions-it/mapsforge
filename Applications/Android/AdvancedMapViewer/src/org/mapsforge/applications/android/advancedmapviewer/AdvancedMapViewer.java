@@ -528,15 +528,15 @@ public class AdvancedMapViewer extends MapActivity {
 		if (sharedPreferences.getBoolean("wakeLock", false) && !this.wakeLock.isHeld()) {
 			this.wakeLock.acquire();
 		}
-
-		boolean persistent = sharedPreferences.getBoolean("cachePersistence", false);
+		// retrieve caching settings
+		boolean persistent = sharedPreferences.getBoolean("cachePersistence", true);
 		int capacity = Math.min(sharedPreferences.getInt("cacheSize", FILE_SYSTEM_CACHE_SIZE_DEFAULT),
 				FILE_SYSTEM_CACHE_SIZE_MAX);
 		TileCache fileSystemTileCache = this.mapView.getFileSystemTileCache();
 		fileSystemTileCache.setPersistent(persistent);
 		fileSystemTileCache.setCapacity(capacity);
 
-		float moveSpeedFactor = Math.min(sharedPreferences.getInt("moveSpeed", MOVE_SPEED_DEFAULT), MOVE_SPEED_MAX) / 10f;
+		float moveSpeedFactor = Math.min(sharedPreferences.getInt("mapMoveSpeed", MOVE_SPEED_DEFAULT), MOVE_SPEED_MAX) / 10f;
 		this.mapView.getMapMover().setMoveSpeedFactor(moveSpeedFactor);
 
 		this.mapView.getFpsCounter().setFpsCounter(sharedPreferences.getBoolean("showFpsCounter", false));
