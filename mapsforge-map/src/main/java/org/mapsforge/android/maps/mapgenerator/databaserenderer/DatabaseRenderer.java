@@ -57,7 +57,7 @@ public class DatabaseRenderer implements RenderCallback {
 	private static final byte STROKE_MIN_ZOOM_LEVEL = 12;
 	private static final Tag TAG_NATURAL_WATER = new Tag("natural", "water");
 	private static final Point[][] WATER_TILE_COORDINATES = getTilePixelCoordinates();
-	private static final byte ZOOM_MAX = 22;
+	private static final byte ZOOM_MAX = 30;
 
 	private static RenderTheme getRenderTheme(XmlRenderTheme jobTheme) {
 		try {
