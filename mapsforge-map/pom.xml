@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.mapsforge</groupId>
 		<artifactId>mapsforge</artifactId>
-		<version>0.3.1-C001</version>
+		<version>0.3.1-MSM-SNAPSHOT</version>
 		<relativePath>../pom.xml</relativePath>
 	</parent>
 
@@ -73,19 +73,19 @@
 		<dependency>
 			<groupId>org.mapsforge</groupId>
 			<artifactId>mapsforge-core</artifactId>
-			<version>0.3.1-C001</version>
+			<version>0.3.1-MSM-SNAPSHOT</version>
 		</dependency>
 
 		<dependency>
 			<groupId>org.mapsforge</groupId>
 			<artifactId>mapsforge-map-reader</artifactId>
-			<version>0.3.1-C001</version>
+			<version>0.3.1-MSM-SNAPSHOT</version>
 		</dependency>
 
 		<dependency>
 			<groupId>org.mapsforge</groupId>
 			<artifactId>mapsforge-render-theme</artifactId>
-			<version>0.3.1-C001</version>
+			<version>0.3.1-MSM-SNAPSHOT</version>
 		</dependency>
 
 		<dependency>
