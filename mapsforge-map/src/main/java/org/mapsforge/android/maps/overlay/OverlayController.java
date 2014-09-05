@@ -28,6 +28,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Point;
+import android.os.Handler;
 
 public class OverlayController extends PausableThread {
 	private static final String THREAD_NAME = OverlayController.class.getSimpleName();
@@ -44,8 +45,11 @@ public class OverlayController extends PausableThread {
 	private Canvas overlayCanvas;
 	private boolean redrawNeeded;
 
-	public OverlayController(MapView mapView) {
+	private Handler handler;
+
+	public OverlayController(MapView mapView, Handler h) {
 		super();
+		this.handler = h;
 		this.mapView = mapView;
 		this.matrix = new Matrix();
 		this.changeSizeNeeded = true;
@@ -161,7 +165,9 @@ public class OverlayController extends PausableThread {
 		try {
 			if (this.redrawNeeded) {
 				this.redrawNeeded = false;
+				beforeRedraw();
 				redraw();
+				afterRedraw();
 			}
 		} finally {
 			this.sizeChange.readLock().unlock();
@@ -245,6 +251,16 @@ public class OverlayController extends PausableThread {
 		}
 	}
 
+	public void afterRedraw() {
+		this.handler.sendEmptyMessage(0);
+
+	}
+
+	public void beforeRedraw() {
+		this.handler.sendEmptyMessage(1);
+
+	}
+
 	@Override
 	protected String getThreadName() {
 		return THREAD_NAME;
@@ -259,4 +275,5 @@ public class OverlayController extends PausableThread {
 	protected boolean hasWork() {
 		return this.changeSizeNeeded || this.redrawNeeded;
 	}
+
 }
