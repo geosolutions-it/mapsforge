@@ -49,6 +49,8 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.CompressFormat;
 import android.graphics.Canvas;
+import android.os.Handler;
+import android.os.Message;
 import android.util.AttributeSet;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -95,6 +97,7 @@ public class MapView extends ViewGroup {
 	private final Projection projection;
 	private final TouchEventHandler touchEventHandler;
 	private final ZoomAnimator zoomAnimator;
+	private Handler handler;
 
 	/**
 	 * @param context
@@ -140,7 +143,7 @@ public class MapView extends ViewGroup {
 		this.mapZoomControls = new MapZoomControls(context, this);
 		this.overlays = Collections.synchronizedList(new ArrayList<Overlay>());
 		this.projection = new MapViewProjection(this);
-		this.touchEventHandler = new TouchEventHandler(mapActivity, this);
+		this.touchEventHandler = new TouchEventHandler(mapActivity.getActivityContext(), this);
 
 		this.databaseRenderer = new DatabaseRenderer(this.mapDatabase);
 
@@ -153,8 +156,21 @@ public class MapView extends ViewGroup {
 
 		this.zoomAnimator = new ZoomAnimator(this);
 		this.zoomAnimator.start();
+		this.handler = new Handler() {
+			@Override
+			public void handleMessage(Message msg) {
 
-		this.overlayController = new OverlayController(this);
+				switch (msg.what) {
+					case (0):
+						loadStop();
+						break;
+					case (1):
+						loadStart();
+						break;
+				}
+			}
+		};
+		this.overlayController = new OverlayController(this, handler);
 		this.overlayController.start();
 
 		GeoPoint startPoint = this.databaseRenderer.getStartPoint();
@@ -167,6 +183,16 @@ public class MapView extends ViewGroup {
 		}
 
 		mapActivity.registerMapView(this);
+	}
+
+	protected void loadStart() {
+		// empty
+
+	}
+
+	protected void loadStop() {
+		// empty
+
 	}
 
 	/**
@@ -330,9 +356,19 @@ public class MapView extends ViewGroup {
 	}
 
 	/**
-	 * Triggers a redraw process of the map.
+	 * redraw all the mapview, with also overlays
 	 */
 	public void redraw() {
+		redraw(true);
+	}
+
+	/**
+	 * Triggers a redraw process of the map.
+	 * 
+	 * @param forceOverlayRedraw
+	 *            if true, redraws the overlays
+	 */
+	public void redraw(boolean forceOverlayRedraw) {
 		if (this.getWidth() <= 0 || this.getHeight() <= 0 || isZoomAnimatorRunning()) {
 			return;
 		}
@@ -382,9 +418,9 @@ public class MapView extends ViewGroup {
 				this.mapWorker.notify();
 			}
 		}
-
-		this.overlayController.redrawOverlays();
-
+		if (forceOverlayRedraw == true) {
+			this.overlayController.redrawOverlays();
+		}
 		if (this.mapScaleBar.isShowMapScaleBar()) {
 			this.mapScaleBar.redrawScaleBar();
 		}
@@ -577,13 +613,13 @@ public class MapView extends ViewGroup {
 		}
 	}
 
-	void clearAndRedrawMapView() {
+	public void clearAndRedrawMapView() {
 		this.jobQueue.clear();
 		this.frameBuffer.clear();
 		redraw();
 	}
 
-	void destroy() {
+	public void destroy() {
 		this.overlayController.interrupt();
 		this.mapMover.interrupt();
 		this.mapWorker.interrupt();
@@ -608,19 +644,20 @@ public class MapView extends ViewGroup {
 	/**
 	 * @return the maximum possible zoom level.
 	 */
-	byte getZoomLevelMax() {
+	public byte getZoomLevelMax() {
 		return (byte) Math.min(this.mapZoomControls.getZoomLevelMax(), this.databaseRenderer.getZoomLevelMax());
 	}
 
-	void onPause() {
+	public void onPause() {
 		this.mapWorker.pause();
 		this.mapMover.pause();
 		this.zoomAnimator.pause();
 	}
 
-	void onResume() {
+	public void onResume() {
 		this.mapWorker.proceed();
 		this.mapMover.proceed();
 		this.zoomAnimator.proceed();
 	}
+
 }
