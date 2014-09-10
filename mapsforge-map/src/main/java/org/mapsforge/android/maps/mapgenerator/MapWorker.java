@@ -28,7 +28,7 @@ import android.graphics.Bitmap;
 public class MapWorker extends PausableThread {
 	private static final String THREAD_NAME = "MapWorker";
 
-	private DatabaseRenderer databaseRenderer;
+	private MapRenderer mapRenderer;
 	private final TileCache fileSystemTileCache;
 	private final TileCache inMemoryTileCache;
 	private final JobQueue jobQueue;
@@ -49,11 +49,11 @@ public class MapWorker extends PausableThread {
 	}
 
 	/**
-	 * @param databaseRenderer
+	 * @param pMapRenderer
 	 *            the DatabaseRenderer which this MapWorker should use.
 	 */
-	public void setDatabaseRenderer(DatabaseRenderer databaseRenderer) {
-		this.databaseRenderer = databaseRenderer;
+	public void setDatabaseRenderer(MapRenderer pMapRenderer) {
+		this.mapRenderer = pMapRenderer;
 	}
 
 	@Override
@@ -63,22 +63,38 @@ public class MapWorker extends PausableThread {
 
 	@Override
 	protected void doWork() {
+
+		// open the MBTiles DB if necessary
+		if (!this.mapRenderer.isWorking()) {
+			this.mapRenderer.start();
+		}
+
 		MapGeneratorJob mapGeneratorJob = this.jobQueue.poll();
 
-		if (this.inMemoryTileCache.containsKey(mapGeneratorJob)) {
+		if (this.inMemoryTileCache.containsKey(mapGeneratorJob) && this.mapView.usesMapsforgeBackground()) {
 			return;
-		} else if (this.fileSystemTileCache.containsKey(mapGeneratorJob)) {
+		} else if (this.fileSystemTileCache.containsKey(mapGeneratorJob) && this.mapView.usesMapsforgeBackground()) {
 			return;
 		}
 
-		boolean success = this.databaseRenderer.executeJob(mapGeneratorJob, this.tileBitmap);
+		boolean success = this.mapRenderer.executeJob(mapGeneratorJob, this.tileBitmap);
 
 		if (!isInterrupted() && success) {
 			if (this.mapView.getFrameBuffer().drawBitmap(mapGeneratorJob.tile, this.tileBitmap)) {
-				this.inMemoryTileCache.put(mapGeneratorJob, this.tileBitmap);
+
+				if (this.mapView.usesMapsforgeBackground()) {
+					this.inMemoryTileCache.put(mapGeneratorJob, this.tileBitmap);
+			}
 			}
 			this.mapView.postInvalidate();
-			this.fileSystemTileCache.put(mapGeneratorJob, this.tileBitmap);
+
+			if (this.mapView.usesMapsforgeBackground()) {
+				this.fileSystemTileCache.put(mapGeneratorJob, this.tileBitmap);
+			}
+		}
+		// close the MB Tiles DB if queue is empty
+		if (this.jobQueue.isEmpty()) {
+			this.mapRenderer.stop();
 		}
 	}
 

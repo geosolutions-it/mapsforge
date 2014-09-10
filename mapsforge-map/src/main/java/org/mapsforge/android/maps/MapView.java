@@ -31,9 +31,11 @@ import org.mapsforge.android.maps.mapgenerator.InMemoryTileCache;
 import org.mapsforge.android.maps.mapgenerator.JobParameters;
 import org.mapsforge.android.maps.mapgenerator.JobQueue;
 import org.mapsforge.android.maps.mapgenerator.MapGeneratorJob;
+import org.mapsforge.android.maps.mapgenerator.MapRenderer;
 import org.mapsforge.android.maps.mapgenerator.MapWorker;
 import org.mapsforge.android.maps.mapgenerator.TileCache;
 import org.mapsforge.android.maps.mapgenerator.databaserenderer.DatabaseRenderer;
+import org.mapsforge.android.maps.mapgenerator.mbtiles.MbTilesDatabaseRenderer;
 import org.mapsforge.android.maps.overlay.Overlay;
 import org.mapsforge.android.maps.overlay.OverlayController;
 import org.mapsforge.core.model.GeoPoint;
@@ -46,11 +48,13 @@ import org.mapsforge.map.rendertheme.ExternalRenderTheme;
 import org.mapsforge.map.rendertheme.InternalRenderTheme;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.CompressFormat;
 import android.graphics.Canvas;
 import android.os.Handler;
 import android.os.Message;
+import android.preference.PreferenceManager;
 import android.util.AttributeSet;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -77,7 +81,7 @@ public class MapView extends ViewGroup {
 	private static final int DEFAULT_TILE_CACHE_SIZE_FILE_SYSTEM = 100;
 	private static final int DEFAULT_TILE_CACHE_SIZE_IN_MEMORY = 20;
 
-	private final DatabaseRenderer databaseRenderer;
+	private MapRenderer mapRenderer;
 	private DebugSettings debugSettings;
 	private final TileCache fileSystemTileCache;
 	private final FpsCounter fpsCounter;
@@ -145,13 +149,30 @@ public class MapView extends ViewGroup {
 		this.projection = new MapViewProjection(this);
 		this.touchEventHandler = new TouchEventHandler(mapActivity.getActivityContext(), this);
 
-		this.databaseRenderer = new DatabaseRenderer(this.mapDatabase);
+		final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+		final int type = Integer.parseInt(prefs.getString("mapsforge_background_type", "0"));
+		MapRenderer _mapRenderer = null;
+		switch (type) {
+			case 0:
+				_mapRenderer = new DatabaseRenderer(this.mapDatabase);
+				break;
+			case 1:
+				final String mapsforge_background_file = prefs.getString("mapsforge_background_file", null);
+				_mapRenderer = new MbTilesDatabaseRenderer(this.getContext(), mapsforge_background_file);
+				break;
+			case 2:
+				// TODO
+				break;
+			default:
+				break;
+		}
+		setRenderer(_mapRenderer, false);
 
 		this.mapWorker = new MapWorker(this);
 		this.mapWorker.start();
 
 		this.mapMover = new MapMover(this);
-		this.mapWorker.setDatabaseRenderer(this.databaseRenderer);
+		this.mapWorker.setDatabaseRenderer(this.mapRenderer);
 		this.mapMover.start();
 
 		this.zoomAnimator = new ZoomAnimator(this);
@@ -173,8 +194,8 @@ public class MapView extends ViewGroup {
 		this.overlayController = new OverlayController(this, handler);
 		this.overlayController.start();
 
-		GeoPoint startPoint = this.databaseRenderer.getStartPoint();
-		Byte startZoomLevel = this.databaseRenderer.getStartZoomLevel();
+		GeoPoint startPoint = this.mapRenderer.getStartPoint();
+		Byte startZoomLevel = this.mapRenderer.getStartZoomLevel();
 		if (startPoint != null) {
 			this.mapViewPosition.setCenter(startPoint);
 		}
@@ -198,8 +219,8 @@ public class MapView extends ViewGroup {
 	/**
 	 * @return the currently used DatabaseRenderer (may be null).
 	 */
-	public DatabaseRenderer getDatabaseRenderer() {
-		return this.databaseRenderer;
+	public MapRenderer getDatabaseRenderer() {
+		return this.mapRenderer;
 	}
 
 	/**
@@ -256,6 +277,37 @@ public class MapView extends ViewGroup {
 	 */
 	public File getMapFile() {
 		return this.mapFile;
+	}
+
+	public MapRenderer getMapRenderer() {
+		return this.mapRenderer;
+	}
+
+	public int getMapRendererType() {
+		if (this.mapRenderer instanceof DatabaseRenderer) {
+			return 0;
+		} else if (this.mapRenderer instanceof MbTilesDatabaseRenderer) {
+			return 1;
+		} else {
+			return 2;
+		}
+	}
+
+	public String getMapRendererFile() {
+		return this.getMapRenderer().getFileName();
+			}
+
+	public boolean usesMapsforgeBackground() {
+		return this.getMapRendererType() == 0;
+	}
+
+	public void setRenderer(final MapRenderer pMapRenderer, final boolean setMapWorkerRenderer) {
+
+		this.mapRenderer = pMapRenderer;
+
+		if (setMapWorkerRenderer) {
+			this.mapWorker.setDatabaseRenderer(this.mapRenderer);
+		}
 	}
 
 	/**
@@ -387,21 +439,27 @@ public class MapView extends ViewGroup {
 			long tileRight = MercatorProjection.pixelXToTileX(pixelLeft + getWidth(), mapPosition.zoomLevel);
 			long tileBottom = MercatorProjection.pixelYToTileY(pixelTop + getHeight(), mapPosition.zoomLevel);
 
+			final boolean usesMB = this.mapRenderer instanceof MbTilesDatabaseRenderer;
+
 			for (long tileY = tileTop; tileY <= tileBottom; ++tileY) {
 				for (long tileX = tileLeft; tileX <= tileRight; ++tileX) {
 					Tile tile = new Tile(tileX, tileY, mapPosition.zoomLevel);
 					MapGeneratorJob mapGeneratorJob = new MapGeneratorJob(tile, this.mapFile, this.jobParameters,
 							this.debugSettings);
 
-					if (this.inMemoryTileCache.containsKey(mapGeneratorJob)) {
+					if (this.inMemoryTileCache.containsKey(mapGeneratorJob) && !usesMB) {
+
 						Bitmap bitmap = this.inMemoryTileCache.get(mapGeneratorJob);
 						this.frameBuffer.drawBitmap(mapGeneratorJob.tile, bitmap);
-					} else if (this.fileSystemTileCache.containsKey(mapGeneratorJob)) {
+					} else if (this.fileSystemTileCache.containsKey(mapGeneratorJob) && !usesMB) {
 						Bitmap bitmap = this.fileSystemTileCache.get(mapGeneratorJob);
 
 						if (bitmap != null) {
 							this.frameBuffer.drawBitmap(mapGeneratorJob.tile, bitmap);
-							this.inMemoryTileCache.put(mapGeneratorJob, bitmap);
+							// only cache "real" mapsforge tiles, no mb tiles
+							if (!usesMB) {
+								this.inMemoryTileCache.put(mapGeneratorJob, bitmap);
+							}
 						} else {
 							// the image data could not be read from the cache
 							this.jobQueue.addJob(mapGeneratorJob);
@@ -484,12 +542,12 @@ public class MapView extends ViewGroup {
 		if (fileOpenResult.isSuccess()) {
 			this.mapFile = mapFile;
 
-			GeoPoint startPoint = this.databaseRenderer.getStartPoint();
+			GeoPoint startPoint = this.mapRenderer.getStartPoint();
 			if (startPoint != null) {
 				this.mapViewPosition.setCenter(startPoint);
 			}
 
-			Byte startZoomLevel = this.databaseRenderer.getStartZoomLevel();
+			Byte startZoomLevel = this.mapRenderer.getStartZoomLevel();
 			if (startZoomLevel != null) {
 				this.mapViewPosition.setZoomLevel(startZoomLevel.byteValue());
 			}
@@ -636,7 +694,7 @@ public class MapView extends ViewGroup {
 		this.mapScaleBar.destroy();
 		this.inMemoryTileCache.destroy();
 		this.fileSystemTileCache.destroy();
-		this.databaseRenderer.destroy();
+		this.mapRenderer.destroy();
 
 		this.mapDatabase.closeFile();
 	}
@@ -645,7 +703,7 @@ public class MapView extends ViewGroup {
 	 * @return the maximum possible zoom level.
 	 */
 	public byte getZoomLevelMax() {
-		return (byte) Math.min(this.mapZoomControls.getZoomLevelMax(), this.databaseRenderer.getZoomLevelMax());
+		return (byte) Math.min(this.mapZoomControls.getZoomLevelMax(), this.mapRenderer.getZoomLevelMax());
 	}
 
 	public void onPause() {

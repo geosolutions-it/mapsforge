@@ -24,6 +24,7 @@ import java.util.logging.Logger;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.mapsforge.android.maps.mapgenerator.MapGeneratorJob;
+import org.mapsforge.android.maps.mapgenerator.MapRenderer;
 import org.mapsforge.core.model.GeoPoint;
 import org.mapsforge.core.model.Point;
 import org.mapsforge.core.model.Tag;
@@ -48,7 +49,7 @@ import org.xml.sax.SAXException;
 /**
  * A DatabaseRenderer renders map tiles by reading from a {@link MapDatabase}.
  */
-public class DatabaseRenderer implements RenderCallback {
+public class DatabaseRenderer implements RenderCallback, MapRenderer {
 	private static final Byte DEFAULT_START_ZOOM_LEVEL = Byte.valueOf((byte) 12);
 	private static final byte LAYERS = 11;
 	private static final Logger LOGGER = Logger.getLogger(DatabaseRenderer.class.getName());
@@ -140,6 +141,7 @@ public class DatabaseRenderer implements RenderCallback {
 	 *            the bitmap for the generated map tile.
 	 * @return true if the job was executed successfully, false otherwise.
 	 */
+	@Override
 	public boolean executeJob(MapGeneratorJob mapGeneratorJob, android.graphics.Bitmap bitmap) {
 		this.currentTile = mapGeneratorJob.tile;
 
@@ -205,6 +207,7 @@ public class DatabaseRenderer implements RenderCallback {
 	/**
 	 * @return the start point (may be null).
 	 */
+	@Override
 	public GeoPoint getStartPoint() {
 		if (this.mapDatabase != null && this.mapDatabase.hasOpenFile()) {
 			MapFileInfo mapFileInfo = this.mapDatabase.getMapFileInfo();
@@ -220,6 +223,7 @@ public class DatabaseRenderer implements RenderCallback {
 	/**
 	 * @return the start zoom level (may be null).
 	 */
+	@Override
 	public Byte getStartZoomLevel() {
 		if (this.mapDatabase != null && this.mapDatabase.hasOpenFile()) {
 			MapFileInfo mapFileInfo = this.mapDatabase.getMapFileInfo();
@@ -234,6 +238,7 @@ public class DatabaseRenderer implements RenderCallback {
 	/**
 	 * @return the maximum zoom level.
 	 */
+	@Override
 	public byte getZoomLevelMax() {
 		return ZOOM_MAX;
 	}
@@ -408,10 +413,35 @@ public class DatabaseRenderer implements RenderCallback {
 		this.renderTheme.scaleStrokeWidth((float) Math.pow(STROKE_INCREASE, zoomLevelDiff));
 	}
 
+	@Override
 	public void destroy() {
 		if (this.renderTheme != null) {
 			this.renderTheme.destroy();
 			this.renderTheme = null;
 		}
 	}
+
+	@Override
+	public String getFileName() {
+
+		return "Mapsforge";
+	}
+
+	@Override
+	public void start() {
+		// nothing
+
+	}
+
+	@Override
+	public void stop() {
+		// nothing
+
+	}
+
+	@Override
+	public boolean isWorking() {
+		return true;
+	}
+
 }
