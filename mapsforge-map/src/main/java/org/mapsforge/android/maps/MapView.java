@@ -81,6 +81,10 @@ public class MapView extends ViewGroup {
 	private static final int DEFAULT_TILE_CACHE_SIZE_FILE_SYSTEM = 100;
 	private static final int DEFAULT_TILE_CACHE_SIZE_IN_MEMORY = 20;
 
+	public static final String MAPSFORGE_BACKGROUND_FILEPATH = "mapsforge_background_filepath";
+	public static final String MAPSFORGE_BACKGROUND_FILEPATH_CHANGED = "mapsforge_background_file_changed";
+	public static final String MAPSFORGE_BACKGROUND_RENDERER_TYPE = "mapsforge_background_type";
+
 	private MapRenderer mapRenderer;
 	private DebugSettings debugSettings;
 	private final TileCache fileSystemTileCache;
@@ -150,17 +154,29 @@ public class MapView extends ViewGroup {
 		this.touchEventHandler = new TouchEventHandler(mapActivity.getActivityContext(), this);
 
 		final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
-		final int type = Integer.parseInt(prefs.getString("mapsforge_background_type", "0"));
+		BackgroundSourceType type = BackgroundSourceType.values()[Integer.parseInt(prefs.getString(
+				MAPSFORGE_BACKGROUND_RENDERER_TYPE, "0"))];
+
+		// TODO add a default filepath inside the downloaded zip file
+		// like MapFilesProvider.getEnvironmentDirPath(null) + MapFilesProvider.getBaseDir() + fileName.mbtiles
+
+		final String filePath = prefs.getString(MAPSFORGE_BACKGROUND_FILEPATH, null);
+
+		if (filePath == null && type == BackgroundSourceType.MBTILES) {
+			// no chance to use MBTiles come background without file
+			// -> use Mapsforge instead
+			type = BackgroundSourceType.MAPSFORGE;
+		}
+
 		MapRenderer _mapRenderer = null;
 		switch (type) {
-			case 0:
+			case MAPSFORGE:
 				_mapRenderer = new DatabaseRenderer(this.mapDatabase);
 				break;
-			case 1:
-				final String mapsforge_background_file = prefs.getString("mapsforge_background_file", null);
-				_mapRenderer = new MbTilesDatabaseRenderer(this.getContext(), mapsforge_background_file);
+			case MBTILES:
+				_mapRenderer = new MbTilesDatabaseRenderer(this.getContext(), filePath);
 				break;
-			case 2:
+			case GEOCOLLECT:
 				// TODO
 				break;
 			default:
@@ -283,13 +299,13 @@ public class MapView extends ViewGroup {
 		return this.mapRenderer;
 	}
 
-	public int getMapRendererType() {
+	public BackgroundSourceType getMapRendererType() {
 		if (this.mapRenderer instanceof DatabaseRenderer) {
-			return 0;
+			return BackgroundSourceType.MAPSFORGE;
 		} else if (this.mapRenderer instanceof MbTilesDatabaseRenderer) {
-			return 1;
+			return BackgroundSourceType.MBTILES;
 		} else {
-			return 2;
+			return BackgroundSourceType.GEOCOLLECT;
 		}
 	}
 
@@ -298,11 +314,14 @@ public class MapView extends ViewGroup {
 			}
 
 	public boolean usesMapsforgeBackground() {
-		return this.getMapRendererType() == 0;
+		return this.getMapRendererType() == BackgroundSourceType.MAPSFORGE;
 	}
 
 	public void setRenderer(final MapRenderer pMapRenderer, final boolean setMapWorkerRenderer) {
 
+		if (this.mapRenderer != null) {
+			this.mapRenderer.destroy();
+		}
 		this.mapRenderer = pMapRenderer;
 
 		if (setMapWorkerRenderer) {
@@ -439,7 +458,7 @@ public class MapView extends ViewGroup {
 			long tileRight = MercatorProjection.pixelXToTileX(pixelLeft + getWidth(), mapPosition.zoomLevel);
 			long tileBottom = MercatorProjection.pixelYToTileY(pixelTop + getHeight(), mapPosition.zoomLevel);
 
-			final boolean usesMB = this.mapRenderer instanceof MbTilesDatabaseRenderer;
+			final boolean usesMBTilesRenderer = this.mapRenderer instanceof MbTilesDatabaseRenderer;
 
 			for (long tileY = tileTop; tileY <= tileBottom; ++tileY) {
 				for (long tileX = tileLeft; tileX <= tileRight; ++tileX) {
@@ -447,17 +466,17 @@ public class MapView extends ViewGroup {
 					MapGeneratorJob mapGeneratorJob = new MapGeneratorJob(tile, this.mapFile, this.jobParameters,
 							this.debugSettings);
 
-					if (this.inMemoryTileCache.containsKey(mapGeneratorJob) && !usesMB) {
+					if (this.inMemoryTileCache.containsKey(mapGeneratorJob) && !usesMBTilesRenderer) {
 
 						Bitmap bitmap = this.inMemoryTileCache.get(mapGeneratorJob);
 						this.frameBuffer.drawBitmap(mapGeneratorJob.tile, bitmap);
-					} else if (this.fileSystemTileCache.containsKey(mapGeneratorJob) && !usesMB) {
+					} else if (this.fileSystemTileCache.containsKey(mapGeneratorJob) && !usesMBTilesRenderer) {
 						Bitmap bitmap = this.fileSystemTileCache.get(mapGeneratorJob);
 
 						if (bitmap != null) {
 							this.frameBuffer.drawBitmap(mapGeneratorJob.tile, bitmap);
 							// only cache "real" mapsforge tiles, no mb tiles
-							if (!usesMB) {
+							if (!usesMBTilesRenderer) {
 								this.inMemoryTileCache.put(mapGeneratorJob, bitmap);
 							}
 						} else {

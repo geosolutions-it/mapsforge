@@ -17,6 +17,7 @@ package org.mapsforge.android.maps.mapgenerator;
 import org.mapsforge.android.maps.MapView;
 import org.mapsforge.android.maps.PausableThread;
 import org.mapsforge.android.maps.mapgenerator.databaserenderer.DatabaseRenderer;
+import org.mapsforge.android.maps.mapgenerator.mbtiles.MbTilesDatabaseRenderer;
 import org.mapsforge.core.model.Tile;
 
 import android.graphics.Bitmap;
@@ -69,11 +70,13 @@ public class MapWorker extends PausableThread {
 			this.mapRenderer.start();
 		}
 
+		final boolean usesMBTilesRenderer = this.mapRenderer instanceof MbTilesDatabaseRenderer;
+
 		MapGeneratorJob mapGeneratorJob = this.jobQueue.poll();
 
-		if (this.inMemoryTileCache.containsKey(mapGeneratorJob) && this.mapView.usesMapsforgeBackground()) {
+		if (this.inMemoryTileCache.containsKey(mapGeneratorJob) && !usesMBTilesRenderer) {
 			return;
-		} else if (this.fileSystemTileCache.containsKey(mapGeneratorJob) && this.mapView.usesMapsforgeBackground()) {
+		} else if (this.fileSystemTileCache.containsKey(mapGeneratorJob) && !usesMBTilesRenderer) {
 			return;
 		}
 
@@ -82,13 +85,13 @@ public class MapWorker extends PausableThread {
 		if (!isInterrupted() && success) {
 			if (this.mapView.getFrameBuffer().drawBitmap(mapGeneratorJob.tile, this.tileBitmap)) {
 
-				if (this.mapView.usesMapsforgeBackground()) {
+				if (!usesMBTilesRenderer) {
 					this.inMemoryTileCache.put(mapGeneratorJob, this.tileBitmap);
 			}
 			}
 			this.mapView.postInvalidate();
 
-			if (this.mapView.usesMapsforgeBackground()) {
+			if (!usesMBTilesRenderer) {
 				this.fileSystemTileCache.put(mapGeneratorJob, this.tileBitmap);
 			}
 		}

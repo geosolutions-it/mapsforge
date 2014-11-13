@@ -7,9 +7,11 @@ import org.mapsforge.core.model.GeoPoint;
 import org.mapsforge.core.model.Tile;
 
 import android.content.Context;
+import android.database.sqlite.SQLiteException;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.util.Log;
 
 /**
  * @author Robert Oehler class which uses a local mbtiles database to render tiles for the mapsforge library
@@ -23,9 +25,9 @@ public class MbTilesDatabaseRenderer implements MapRenderer {
 
 	private boolean isDBOpen = false;
 
-	public MbTilesDatabaseRenderer(final Context pContext, final String dbName) {
+	public MbTilesDatabaseRenderer(final Context pContext, final String pDBPath) {
 
-		this.db = new MbTilesDatabase(pContext, dbName);
+		this.db = new MbTilesDatabase(pContext, pDBPath);
 
 	}
 
@@ -96,13 +98,32 @@ public class MbTilesDatabaseRenderer implements MapRenderer {
 	@Override
 	public GeoPoint getStartPoint() {
 
+		try {
 		this.db.openDataBase();
 		final BoundingBox bb = this.db.getBoundingBox();
 		this.db.close();
-		try {
 			return bb.getCenterPoint();
 		} catch (NullPointerException e) {
-			return new GeoPoint(43.7242359188, 10.9463005959);
+			Log.e(TAG, "NullPointerException getStartPoint", e);
+			return null;
+		} catch (SQLiteException e) {
+			Log.e(TAG, "SQLiteException getStartPoint", e);
+			return null;
+		}
+	}
+
+	public BoundingBox getBoundingBox() {
+		try {
+			this.db.openDataBase();
+			final BoundingBox bb = this.db.getBoundingBox();
+			this.db.close();
+			return bb;
+		} catch (NullPointerException e) {
+			Log.e(TAG, "NullPointerException getBoundingBox", e);
+			return null;
+		} catch (SQLiteException e) {
+			Log.e(TAG, "SQLiteException getBoundingBox", e);
+			return null;
 		}
 	}
 
@@ -167,6 +188,7 @@ public class MbTilesDatabaseRenderer implements MapRenderer {
 	public void destroy() {
 
 		if (this.db != null) {
+			stop();
 			this.db = null;
 		}
 
