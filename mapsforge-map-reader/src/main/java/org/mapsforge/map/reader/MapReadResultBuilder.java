@@ -28,6 +28,9 @@ class MapReadResultBuilder {
 	}
 
 	void add(PoiWayBundle poiWayBundle) {
+		if(poiWayBundle == null){
+			return;
+		}
 		this.pointOfInterests.addAll(poiWayBundle.pois);
 		this.ways.addAll(poiWayBundle.ways);
 	}
