@@ -65,7 +65,7 @@ public class MbTilesDatabase extends SQLiteOpenHelper {
 	public void openDataBase() throws SQLException {
 
 		// String myPath = DB_PATH + DB_NAME;
-		this.mDataBase = SQLiteDatabase.openDatabase(DB_Path, null, SQLiteDatabase.OPEN_READONLY);
+		this.mDataBase = SQLiteDatabase.openDatabase(DB_Path, null, SQLiteDatabase.OPEN_READONLY | SQLiteDatabase.NO_LOCALIZED_COLLATORS);
 
 	}
 
